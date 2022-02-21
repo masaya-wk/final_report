@@ -1,0 +1,244 @@
+---
+title: "untitle"
+author: ""
+date: "`r Sys.Date()`"
+output:
+ html_document:
+    css : R_style.css
+    # theme: cosmo
+    highlight: haddock     # Rスクリプトのハイライト形式
+    code_folding: 'hide'  # Rコードの折りたたみ表示を設定
+    toc: TRUE
+    toc_depth: 3           # 見出しの表示とその深さを指定
+    toc_float: true        # 見出しを横に表示し続ける
+    number_sections: true # 見出しごとに番号を振る
+    df_print: paged        # head()の出力をnotebook的なものに（tibbleと相性良）
+    latex_engine: xelatex  # zxjatypeパッケージを使用するために変更
+    # fig_height: 4.5          # 画像サイズのデフォルトを設定
+    # fig_width: 8           # 画像サイズのデフォルトを設定
+    dev: png
+classoption: xelatex,ja=standard
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+rm(list = ls())
+
+path <- getwd()
+
+pacman::p_load(tidyverse)
+
+# Font for windows and mac
+if (path == "D:"){ 
+  theme_set(theme_gray(base_size = 10, base_family = "Arial"))        # Windows用¥
+ } else{
+  theme_set(theme_gray(base_size = 10, base_family = "HiraginoSans-W3"))  # macOS用
+ }
+```
+
+```{r, eval=FALSE}
+to_csv_out <- readr::read_csv("o_csv_out.csv")
+```
+
+```{r}
+to_csv_out <- readr::read_csv("Scaled_Google.csv")
+```
+
+
+```{r}
+prefec <- readr::read_csv("prefec.csv")
+```
+
+
+
+```{r}
+prefec <- prefec %>% dplyr::select(-Twitter)
+prefec <- prefec %>% dplyr::rename("Prefecture"="geoCode")
+```
+
+```{r}
+df <- to_csv_out %>% dplyr::left_join(prefec, by ="Prefecture")
+```
+
+
+```{r, eval=FALSE}
+df <- df %>% 
+  dplyr::rename(Suicide = "自殺") %>% 
+  dplyr::rename(Wellbing = "幸福") %>% 
+  dplyr::rename(Worry = "心配") %>% 
+  dplyr::rename(Boredom = "退屈") %>% 
+  dplyr::rename(Contentment = "満足") %>% 
+  dplyr::rename(Divorce = "離婚") %>% 
+  dplyr::rename(Impairment = "障害") %>% 
+  dplyr::rename(Irritability = "過敏性") %>% 
+  dplyr::rename(Loneliness = "孤独感") %>% 
+  dplyr::rename(Panic= "パニック") %>% 
+  dplyr::rename(Sadness = "悲しみ") %>% 
+  dplyr::rename(Sleep = "睡眠") %>% 
+  dplyr::rename(Stress = "ストレス") 
+```
+
+```{r}
+df <- df %>% dplyr::filter(date >= "2019-03-10" & date <= "2019-05-11"|date >= "2020-03-10" & date <= "2020-05-11")
+
+#df <- df %>% dplyr::filter(date >= "2019-03-10"  & date <= "2020-05-11")
+
+
+df <- df  %>% dplyr::mutate(add_one = 1, day = cumsum(add_one)) %>% 
+  dplyr::select(-(add_one))
+
+df <- df %>% dplyr::mutate(week = dplyr::case_when(
+  date >= "2019-03-10" & date < "2019-03-17" ~ 1,
+  date >= "2019-03-17" & date < "2019-03-24" ~ 2,
+  date >= "2019-03-24" & date < "2019-03-31" ~ 3,
+  date >= "2019-03-31" & date < "2019-04-07" ~ 4,
+  date >= "2019-04-07" & date < "2019-04-14" ~ 5,
+  date >= "2019-04-14" & date < "2019-04-21" ~ 6,
+  date >= "2019-04-21" & date < "2019-04-28" ~ 7,
+  date >= "2019-04-28" & date < "2019-05-05" ~ 8,
+  date >= "2019-05-05" & date < "2019-05-12" ~ 9,
+  date >= "2020-03-10" & date < "2020-03-17" ~ 1,
+  date >= "2020-03-17" & date < "2020-03-24" ~ 2,
+  date >= "2020-03-24" & date < "2020-03-31" ~ 3,
+  date >= "2020-03-31" & date < "2020-04-07" ~ 4,
+  date >= "2020-04-07" & date < "2020-04-14" ~ 5,
+  date >= "2020-04-14" & date < "2020-04-21" ~ 6,
+  date >= "2020-04-21" & date < "2020-04-28" ~ 7,
+  date >= "2020-04-28" & date < "2020-05-05" ~ 8,
+  date >= "2020-05-05" & date < "2020-05-12" ~ 9,
+  TRUE ~ 0))
+
+df <- df %>% dplyr::mutate(day_j = df$date %>% lubridate::wday(label = TRUE, locale = "ja_JP.UTF-8") )
+
+df <- df %>% dplyr::mutate(day_w = dplyr::case_when(
+  day_j == "日" ~ 1,
+  day_j == "月" ~ 2,
+  day_j == "火" ~ 3,
+  day_j == "水" ~ 4,
+  day_j == "木" ~ 5,
+  day_j == "金" ~ 6,
+  day_j == "土" ~ 7,
+))
+
+df <- df %>% dplyr::mutate(month = str_sub(df$date, start=7, end=7))
+
+df <- df %>% dplyr::mutate(year4 = str_sub(df$date, start=1, end=4))
+
+df <- df %>% dplyr::select(-day_j)
+
+df <- df %>% dplyr::mutate(weekbefore4 = dplyr::case_when(
+  week == 1 ~ 1,
+  TRUE ~ 0
+))
+df <- df %>% dplyr::mutate(weekbefore3 = dplyr::case_when(
+  week == 2 ~ 1,
+  TRUE ~ 0
+))
+df <- df %>% dplyr::mutate(weekbefore2 = dplyr::case_when(
+  week == 3 ~ 1,
+  TRUE ~ 0
+))
+df <- df %>% dplyr::mutate(weekbefore1 = dplyr::case_when(
+  week == 4 ~ 1,
+  TRUE ~ 0
+))
+df <- df %>% dplyr::mutate(week0 = dplyr::case_when(
+  week == 5 ~ 1,
+  TRUE ~ 0
+))
+df <- df %>% dplyr::mutate(weekafter1 = dplyr::case_when(
+  week == 6 ~ 1,
+  TRUE ~ 0
+))
+df <- df %>% dplyr::mutate(weekafter2 = dplyr::case_when(
+  week == 7 ~ 1,
+  TRUE ~ 0
+))
+
+df <- df %>% dplyr::mutate(weekafter3 = dplyr::case_when(
+  week == 8 ~ 1,
+  TRUE ~ 0
+))
+
+df <- df %>% dplyr::mutate(weekafter4 = dplyr::case_when(
+  week == 9 ~ 1,
+  TRUE ~ 0
+))
+```
+
+# Yearダミー
+```{r}
+df <- df %>% dplyr::mutate(Year = dplyr::case_when(
+  stringr::str_detect(date, pattern="2019") ~  0,
+  stringr::str_detect(date, pattern="2020") ~ 1,
+))
+```
+
+# 処置ダミー
+```{r}
+df <- df %>% dplyr::mutate(Treatment = dplyr::case_when(
+  date >= "2020-04-07"~ 1,
+  TRUE ~ 0
+))
+
+```
+
+```{r, eval=FALSE}
+df <- df %>% dplyr::mutate(Treatment = dplyr::case_when(
+  date >= "2020-04-07" & geoName == "東京都" ~ 1,
+  date >= "2020-04-07" & geoName == "大阪府" ~ 1,
+  date >= "2020-04-07" & geoName == "神奈川県" ~ 1,
+  date >= "2020-04-07" & geoName == "埼玉県" ~ 1,
+  date >= "2020-04-07" & geoName == "千葉県" ~ 1,
+  date >= "2020-04-07" & geoName == "兵庫県" ~ 1,
+  date >= "2020-04-07" & geoName == "福岡県" ~ 1,
+  TRUE ~ 0
+))
+
+```
+
+```{r}
+population <- readxl::read_excel("population.xlsx")
+```
+
+```{r}
+df$year4 <- as.numeric(df$year4)
+df <- df %>% dplyr::left_join(population,by = c("geoName", "year4"))
+```
+
+```{r}
+covid_death <- readxl::read_excel("nhk_news_covid19_prefectures_daily_data.xlsx")
+```
+
+```{r}
+covid_death <- covid_death %>% 
+  dplyr::rename("date" = "日付") %>% 
+  dplyr::rename("geoName" = "都道府県名") %>% 
+  dplyr::rename("death" = "各地の死者数_1日ごとの発表数") %>% 
+  dplyr::select(date, death, geoName)
+```
+
+```{r}
+covid_death$date <- as.Date(covid_death$date)
+df$date <- as.Date(df$date)
+
+df <- df %>% dplyr::left_join(covid_death,by = c("date", "geoName"))
+
+```
+
+```{r}
+df <- df %>% dplyr::mutate(lag_death = lag(death, order_by = date)) %>% 
+  dplyr::select(-death)
+
+df$lag_death <-  tidyr::replace_na(df$lag_death, 0) 
+```
+
+
+```{r}
+write.csv(df, "df_google.csv", fileEncoding = "CP932",row.names = FALSE)
+```
